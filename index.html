@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBAC PM Prototype</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .product-A { background-color: #f0f9ff; } /* Light Blue */
+        .product-S { background-color: #f5f3ff; } /* Light Purple */
+        .product-T { background-color: #f0fdf4; } /* Light Green */
+        .product-P { background-color: #fff7ed; } /* Light Orange */
+        .product-X { background-color: #fef2f2; } /* Light Red */
+        .card { transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); }
+    </style>
+</head>
+<body class="min-h-screen p-8 bg-gray-50 transition-colors duration-500" id="bodyTag">
+
+    <div id="loginOverlay" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full text-center">
+            <h1 class="text-2xl font-bold mb-6">Select PM Login</h1>
+            <div class="space-y-3">
+                <button onclick="login('Rose PA', 'Product A')" class="w-full py-3 bg-blue-600 text-white rounded hover:bg-blue-700">Login as Rose (Product A)</button>
+                <button onclick="login('Petra PS', 'Product S')" class="w-full py-3 bg-purple-600 text-white rounded hover:bg-purple-700">Login as Petra (Product S)</button>
+                <button onclick="login('Terri PT', 'Product T')" class="w-full py-3 bg-green-600 text-white rounded hover:bg-green-700">Login as Terri (Product T)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" class="hidden max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
+            <div>
+                <h2 id="pmName" class="text-xl font-bold">PM Name</h2>
+                <p id="productName" class="text-gray-500 font-medium">Product Name</p>
+            </div>
+            <button onclick="location.reload()" class="px-4 py-2 border rounded hover:bg-gray-100">Logout</button>
+        </header>
+
+        <div class="space-y-12">
+            <section>
+                <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">1. Master Role Templates (OOB)</h3>
+                <div id="templateContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            </section>
+
+            <section>
+                <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">2. My Drafts (Editable)</h3>
+                <div id="draftContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            </section>
+
+            <section>
+                <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">3. Live Active Roles (Locked)</h3>
+                <div id="activeContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THESE WITH YOUR ACTUAL SUPABASE KEYS
+        const SUPABASE_URL = 'https://kcogtyursbmtstmxqjta.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjb2d0eXVyc2JtdHN0bXhxanRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODA4MTYsImV4cCI6MjA5MTU1NjgxNn0.dsCD9MZ28IJ2ELo1GKNHWEUurU6VGCfEE3mxGEnrmrc';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentPM = '';
+        let currentProduct = '';
+
+        async function login(name, product) {
+            currentPM = name;
+            currentProduct = product;
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('pmName').innerText = name;
+            document.getElementById('productName').innerText = product;
+            document.getElementById('bodyTag').className = 'product-' + product.split(' ')[1];
+            fetchRoles();
+        }
+
+        async function fetchRoles() {
+            const { data, error } = await supabase
+                .from('roles')
+                .select('*')
+                .or(`product.eq.${currentProduct},product.eq.GLOBAL`);
+
+            if (error) console.error(error);
+            renderCards(data);
+        }
+
+        function renderCards(roles) {
+            const containers = {
+                template: document.getElementById('templateContainer'),
+                draft: document.getElementById('draftContainer'),
+                active: document.getElementById('activeContainer')
+            };
+
+            // Clear containers
+            Object.values(containers).forEach(c => c.innerHTML = '');
+
+            roles.forEach(role => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-6 rounded-xl shadow card border border-gray-100";
+                card.innerHTML = `
+                    <h4 class="font-bold text-lg mb-2">${role.role_name}</h4>
+                    <div class="text-sm text-gray-600 mb-4">
+                        ${role.perms_json.map(p => `<span class="inline-block bg-gray-100 px-2 py-1 rounded mr-1 mb-1">${p}</span>`).join('')}
+                    </div>
+                    ${renderButtons(role)}
+                `;
+                containers[role.status].appendChild(card);
+            });
+        }
+
+        function renderButtons(role) {
+            if (role.status === 'template') {
+                return `<button onclick="copyToDraft(${role.id})" class="text-sm bg-blue-600 text-white px-4 py-2 rounded">Copy to Draft</button>`;
+            } else if (role.status === 'draft') {
+                return `
+                    <div class="flex gap-2">
+                        <button onclick="activate(${role.id})" class="text-sm bg-green-600 text-white px-4 py-2 rounded">Activate</button>
+                        <button class="text-sm border px-4 py-2 rounded opacity-50 cursor-not-allowed">Edit (UI Mock)</button>
+                    </div>`;
+            }
+            return `<span class="text-xs font-bold text-gray-400 uppercase">🔒 Read Only / Locked</span>`;
+        }
+
+        async function copyToDraft(id) {
+            const { data: source } = await supabase.from('roles').select('*').eq('id', id).single();
+            await supabase.from('roles').insert({
+                product: currentProduct,
+                role_name: source.role_name + ' (Draft)',
+                status: 'draft',
+                perms_json: source.perms_json
+            });
+            fetchRoles();
+        }
+
+        async function activate(id) {
+            await supabase.from('roles').update({ status: 'active' }).eq('id', id);
+            fetchRoles();
+        }
+    </script>
+</body>
+</html>
