@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RBAC Prototype - PMUM</title>
+    <title>PMUM Role Management Prototype</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -21,8 +21,8 @@
 
     <div id="loginOverlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 p-4">
         <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-slate-200">
-            <h1 class="text-3xl font-extrabold mb-2 text-slate-800">Select PM Login</h1>
-            <p class="text-slate-500 mb-8 text-sm font-medium uppercase tracking-widest text-center">Project: PMUMRBAC</p>
+            <h1 class="text-3xl font-extrabold mb-2 text-slate-800">PMUM Login</h1>
+            <p class="text-slate-500 mb-8 text-sm font-medium uppercase tracking-widest text-center">Select your product environment</p>
             <div class="space-y-3">
                 <button onclick="login('Rose PA', 'Product A')" class="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">Login as Rose (Product A)</button>
                 <button onclick="login('Petra PS', 'Product S')" class="w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition">Login as Petra (Product S)</button>
@@ -39,7 +39,13 @@
                 <h2 id="pmName" class="text-2xl font-black text-slate-800 uppercase tracking-tight">PM Name</h2>
                 <p id="productName" class="text-slate-500 font-bold uppercase text-xs tracking-widest">Product Name</p>
             </div>
-            <button onclick="location.reload()" class="px-6 py-2 bg-white border border-slate-200 rounded-full font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm">Logout / Switch User</button>
+            <div class="flex items-center gap-6">
+                <a id="readmeLink" href="#" target="_blank" class="text-sm font-bold text-blue-600 hover:text-blue-800 underline flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    View Requirements (README)
+                </a>
+                <button onclick="location.reload()" class="px-6 py-2 bg-white border border-slate-200 rounded-full font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm">Logout</button>
+            </div>
         </header>
 
         <div class="space-y-16">
@@ -79,17 +85,21 @@
 
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition">Cancel</button>
-                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">Save</button>
+                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">Save</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- CONFIG ---
+        // --- CONFIGURATION ---
         const SUPABASE_URL = 'https://kcogtyursbmtstmxqjta.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjb2d0eXVyc2JtdHN0bXhxanRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODA4MTYsImV4cCI6MjA5MTU1NjgxNn0.dsCD9MZ28IJ2ELo1GKNHWEUurU6VGCfEE3mxGEnrmrc';
         const PROJECT_KEY = 'PMUMRBAC_PROTOTYPE'; 
         
+        // PASTE YOUR GITHUB README LINK HERE
+        const GITHUB_README_URL = 'https://github.com/YOUR_USERNAME/YOUR_REPO/blob/main/README.md';
+        document.getElementById('readmeLink').href = GITHUB_README_URL;
+
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -135,23 +145,19 @@
         function renderButtons(role) {
             if (role.status === 'template') return `<button onclick="copyToDraft(${role.id})" class="w-full py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition">Copy to ${currentProduct}</button>`;
             if (role.status === 'draft') return `<div class="flex gap-2"><button onclick="activate(${role.id})" class="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition">Activate</button><button onclick="openEditModal(${role.id}, '${role.role_name}', '${role.perms_json}')" class="flex-1 py-2.5 border border-slate-800 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-50 transition">Edit</button></div>`;
-            return `<div class="w-full py-2 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black text-center rounded-lg tracking-widest uppercase">Read Only</div>`;
+            return `<div class="w-full py-2 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black text-center rounded-lg uppercase tracking-widest">Read Only</div>`;
         }
 
         async function copyToDraft(id) {
             const { data: source } = await supabaseClient.from('roles').select('*').eq('id', id).single();
-            
-            // Apply "Draft -" prefix to work around the collision gap
             let newName = `Draft - ${source.role_name}`;
             
-            // Check if this specific draft name already exists (Double-click protection)
             const isDuplicate = cachedRoles.some(r => 
                 r.product === currentProduct && 
                 r.role_name.toLowerCase() === newName.toLowerCase()
             );
 
             if (isDuplicate) {
-                // Append a simple timestamp if the draft name is also taken
                 newName = `${newName} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
             }
 
@@ -189,7 +195,6 @@
             const newName = document.getElementById('editRoleName').value.trim();
             const selected = Array.from(document.querySelectorAll('.perm-check:checked')).map(cb => cb.value);
             
-            // CASE INSENSITIVE UNIQUENESS CHECK
             const isDuplicate = cachedRoles.some(r => 
                 r.product === currentProduct && 
                 r.role_name.toLowerCase() === newName.toLowerCase() && 
