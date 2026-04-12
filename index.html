@@ -47,10 +47,12 @@
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">1. Master Role Templates (OOB)</h3>
                 <div id="templateContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </section>
+
             <section>
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">2. My Drafts (Editable)</h3>
                 <div id="draftContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </section>
+
             <section>
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">3. Live Active Roles (Locked)</h3>
                 <div id="activeContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -62,18 +64,22 @@
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-white">
             <h3 class="text-xl font-black text-slate-800 mb-1">Configure Role</h3>
             <p class="text-slate-500 text-sm mb-6 font-medium text-red-500" id="modalErrorMsg"></p>
+            
             <input type="hidden" id="editRoleId">
+            
             <div class="mb-6">
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Role Name</label>
                 <input type="text" id="editRoleName" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700">
             </div>
+
             <div class="mb-6">
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Permissions</label>
                 <div id="permissionOptions" class="space-y-2 max-h-48 overflow-y-auto pr-2"></div>
             </div>
+
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition">Cancel</button>
-                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">Save</button>
+                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">Save</button>
             </div>
         </div>
     </div>
@@ -82,7 +88,7 @@
         // --- CONFIG ---
         const SUPABASE_URL = 'https://kcogtyursbmtstmxqjta.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjb2d0eXVyc2JtdHN0bXhxanRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODA4MTYsImV4cCI6MjA5MTU1NjgxNn0.dsCD9MZ28IJ2ELo1GKNHWEUurU6VGCfEE3mxGEnrmrc';
-        const PROJECT_KEY = 'PMUMRBAC_PROTOTYPE'; // Updated project key
+        const PROJECT_KEY = 'PMUMRBAC_PROTOTYPE'; 
         
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -102,11 +108,10 @@
         }
 
         async function fetchRoles() {
-            // Filter strictly by the project key to keep this prototype isolated
             const { data, error } = await supabaseClient
                 .from('roles')
                 .select('*')
-                .eq('project_key', PROJECT_KEY) 
+                .eq('project_key', PROJECT_KEY)
                 .or(`product.eq."${currentProduct}",product.eq.GLOBAL`);
             
             if (!error) { 
@@ -128,24 +133,26 @@
         }
 
         function renderButtons(role) {
-            if (role.status === 'template') return `<button onclick="copyToDraft(${role.id})" class="w-full py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition shadow-sm">Copy to ${currentProduct}</button>`;
+            if (role.status === 'template') return `<button onclick="copyToDraft(${role.id})" class="w-full py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition">Copy to ${currentProduct}</button>`;
             if (role.status === 'draft') return `<div class="flex gap-2"><button onclick="activate(${role.id})" class="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition">Activate</button><button onclick="openEditModal(${role.id}, '${role.role_name}', '${role.perms_json}')" class="flex-1 py-2.5 border border-slate-800 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-50 transition">Edit</button></div>`;
             return `<div class="w-full py-2 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black text-center rounded-lg tracking-widest uppercase">Read Only</div>`;
         }
 
         async function copyToDraft(id) {
             const { data: source } = await supabaseClient.from('roles').select('*').eq('id', id).single();
-            const newName = source.role_name;
             
-            // STRICT UNIQUENESS CHECK
+            // Apply "Draft -" prefix to work around the collision gap
+            let newName = `Draft - ${source.role_name}`;
+            
+            // Check if this specific draft name already exists (Double-click protection)
             const isDuplicate = cachedRoles.some(r => 
                 r.product === currentProduct && 
                 r.role_name.toLowerCase() === newName.toLowerCase()
             );
 
             if (isDuplicate) {
-                alert(`Cannot copy: A role named "${newName}" already exists in ${currentProduct}.`);
-                return;
+                // Append a simple timestamp if the draft name is also taken
+                newName = `${newName} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
             }
 
             await supabaseClient.from('roles').insert({ 
@@ -190,7 +197,7 @@
             );
 
             if (isDuplicate) {
-                document.getElementById('modalErrorMsg').innerText = `Role name "${newName}" already exists.`;
+                document.getElementById('modalErrorMsg').innerText = `Role name "${newName}" already exists in ${currentProduct}.`;
                 return;
             }
 
