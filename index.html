@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RBAC Prototype - PM Role Management</title>
+    <title>RBAC Prototype - PMUM</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -22,7 +22,7 @@
     <div id="loginOverlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 p-4">
         <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-slate-200">
             <h1 class="text-3xl font-extrabold mb-2 text-slate-800">Select PM Login</h1>
-            <p class="text-slate-500 mb-8 text-sm font-medium uppercase tracking-widest text-center">Data Isolation & Name Validation</p>
+            <p class="text-slate-500 mb-8 text-sm font-medium uppercase tracking-widest text-center">Project: PMUMRBAC</p>
             <div class="space-y-3">
                 <button onclick="login('Rose PA', 'Product A')" class="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">Login as Rose (Product A)</button>
                 <button onclick="login('Petra PS', 'Product S')" class="w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition">Login as Petra (Product S)</button>
@@ -47,12 +47,10 @@
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">1. Master Role Templates (OOB)</h3>
                 <div id="templateContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </section>
-
             <section>
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">2. My Drafts (Editable)</h3>
                 <div id="draftContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </section>
-
             <section>
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">3. Live Active Roles (Locked)</h3>
                 <div id="activeContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -63,23 +61,19 @@
     <div id="editModal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-white">
             <h3 class="text-xl font-black text-slate-800 mb-1">Configure Role</h3>
-            <p class="text-slate-500 text-sm mb-6 font-medium">Unique name required per product</p>
-            
+            <p class="text-slate-500 text-sm mb-6 font-medium text-red-500" id="modalErrorMsg"></p>
             <input type="hidden" id="editRoleId">
-            
             <div class="mb-6">
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Role Name</label>
                 <input type="text" id="editRoleName" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700">
             </div>
-
             <div class="mb-6">
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Permissions</label>
                 <div id="permissionOptions" class="space-y-2 max-h-48 overflow-y-auto pr-2"></div>
             </div>
-
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition">Cancel</button>
-                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">Save</button>
+                <button onclick="saveChanges()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">Save</button>
             </div>
         </div>
     </div>
@@ -88,6 +82,7 @@
         // --- CONFIG ---
         const SUPABASE_URL = 'https://kcogtyursbmtstmxqjta.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjb2d0eXVyc2JtdHN0bXhxanRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODA4MTYsImV4cCI6MjA5MTU1NjgxNn0.dsCD9MZ28IJ2ELo1GKNHWEUurU6VGCfEE3mxGEnrmrc';
+        const PROJECT_KEY = 'PMUMRBAC_PROTOTYPE'; // Updated project key
         
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -107,7 +102,13 @@
         }
 
         async function fetchRoles() {
-            const { data, error } = await supabaseClient.from('roles').select('*').or(`product.eq."${currentProduct}",product.eq.GLOBAL`);
+            // Filter strictly by the project key to keep this prototype isolated
+            const { data, error } = await supabaseClient
+                .from('roles')
+                .select('*')
+                .eq('project_key', PROJECT_KEY) 
+                .or(`product.eq."${currentProduct}",product.eq.GLOBAL`);
+            
             if (!error) { 
                 cachedRoles = data; 
                 renderCards(data); 
@@ -117,44 +118,43 @@
         function renderCards(roles) {
             const containers = { template: document.getElementById('templateContainer'), draft: document.getElementById('draftContainer'), active: document.getElementById('activeContainer') };
             Object.values(containers).forEach(c => c.innerHTML = '');
-
             roles.forEach(role => {
                 const card = document.createElement('div');
                 card.className = "bg-white p-6 rounded-2xl shadow-sm border border-slate-100 card flex flex-col h-full";
                 const permsHtml = role.perms_json.map(p => `<span class="inline-block bg-slate-50 border border-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded font-bold uppercase mr-1 mb-1">${p}</span>`).join('');
-
-                card.innerHTML = `
-                    <div class="flex-grow">
-                        <h4 class="font-black text-slate-800 text-lg mb-1">${role.role_name}</h4>
-                        <div class="mb-6">${permsHtml}</div>
-                    </div>
-                    <div class="mt-4">${renderButtons(role)}</div>
-                `;
+                card.innerHTML = `<div class="flex-grow"><h4 class="font-black text-slate-800 text-lg mb-1">${role.role_name}</h4><div class="mb-6">${permsHtml}</div></div><div class="mt-4">${renderButtons(role)}</div>`;
                 containers[role.status].appendChild(card);
             });
         }
 
         function renderButtons(role) {
             if (role.status === 'template') return `<button onclick="copyToDraft(${role.id})" class="w-full py-2.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition shadow-sm">Copy to ${currentProduct}</button>`;
-            if (role.status === 'draft') return `<div class="flex gap-2"><button onclick="activate(${role.id})" class="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition shadow-sm shadow-emerald-100">Activate</button><button onclick="openEditModal(${role.id}, '${role.role_name}', '${role.perms_json}')" class="flex-1 py-2.5 border border-slate-800 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-50 transition">Edit</button></div>`;
+            if (role.status === 'draft') return `<div class="flex gap-2"><button onclick="activate(${role.id})" class="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition">Activate</button><button onclick="openEditModal(${role.id}, '${role.role_name}', '${role.perms_json}')" class="flex-1 py-2.5 border border-slate-800 text-slate-800 text-xs font-bold rounded-xl hover:bg-slate-50 transition">Edit</button></div>`;
             return `<div class="w-full py-2 bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black text-center rounded-lg tracking-widest uppercase">Read Only</div>`;
         }
 
         async function copyToDraft(id) {
             const { data: source } = await supabaseClient.from('roles').select('*').eq('id', id).single();
-            let newName = source.role_name;
+            const newName = source.role_name;
             
-            // Initial Uniqueness Check (Case Insensitive)
+            // STRICT UNIQUENESS CHECK
             const isDuplicate = cachedRoles.some(r => 
                 r.product === currentProduct && 
                 r.role_name.toLowerCase() === newName.toLowerCase()
             );
 
             if (isDuplicate) {
-                newName = newName + " (New Copy)";
+                alert(`Cannot copy: A role named "${newName}" already exists in ${currentProduct}.`);
+                return;
             }
 
-            await supabaseClient.from('roles').insert({ product: currentProduct, role_name: newName, status: 'draft', perms_json: source.perms_json });
+            await supabaseClient.from('roles').insert({ 
+                product: currentProduct, 
+                role_name: newName, 
+                status: 'draft', 
+                perms_json: source.perms_json,
+                project_key: PROJECT_KEY 
+            });
             fetchRoles();
         }
 
@@ -162,6 +162,7 @@
             const currentPerms = currentPermsStr ? currentPermsStr.split(',') : [];
             document.getElementById('editRoleId').value = roleId;
             document.getElementById('editRoleName').value = roleName;
+            document.getElementById('modalErrorMsg').innerText = ""; 
             
             const container = document.getElementById('permissionOptions');
             container.innerHTML = ALL_PERMISSIONS.map(p => `
@@ -189,18 +190,19 @@
             );
 
             if (isDuplicate) {
-                alert(`Error: The role name "${newName}" is already in use for ${currentProduct} (Active or Draft). Please choose a unique name.`);
+                document.getElementById('modalErrorMsg').innerText = `Role name "${newName}" already exists.`;
                 return;
             }
 
             if (newName === "") {
-                alert("Role name cannot be empty.");
+                document.getElementById('modalErrorMsg').innerText = "Role name cannot be empty.";
                 return;
             }
 
             await supabaseClient.from('roles').update({ 
                 role_name: newName,
-                perms_json: selected 
+                perms_json: selected,
+                project_key: PROJECT_KEY
             }).eq('id', roleId);
             
             closeModal();
