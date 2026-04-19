@@ -8,9 +8,6 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    env:
-      # This line opts into the newer Node version to remove the warning
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -19,41 +16,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Updated to Node 24
+          node-version: '20' # Stick to 20 for now to match v4 actions perfectly
 
       - name: Install Supabase Client
         run: npm install @supabase/supabase-js --force
 
       - name: Ping Supabase
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }} 
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} 
+          URL: ${{ secrets.SUPABASE_URL }} 
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} 
         run: |
           node -e "
           const { createClient } = require('@supabase/supabase-js');
           (async () => {
             try {
-              if (!process.env.SUPABASE_URL || process.env.SUPABASE_KEY.includes('YOUR_')) {
-                throw new Error('Secrets are not configured correctly in GitHub.');
-              }
-
-              const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-              // Perform a test query
-              const { data, error, status } = await supabase
-                .from('roles')
-                .select('id')
-                .limit(1);
-
-              if (error) {
-                console.error('Supabase API Error:', error.message);
-                console.error('HTTP Status:', status);
-                process.exit(1);
-              }
-
-              console.log('Ping successful. Database status: Active');
+              const supabase = createClient(process.env.URL, process.env.KEY);
+              const { data, error } = await supabase.from('roles').select('id').limit(1);
+              if (error) throw error;
+              console.log('Success: Database is active.');
             } catch (err) {
-              console.error('Workflow Error:', err.message);
+              console.error('FAILED:', err.message);
               process.exit(1);
             }
           })();
