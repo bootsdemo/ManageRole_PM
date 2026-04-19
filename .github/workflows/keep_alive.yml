@@ -8,15 +8,18 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    env:
+      # This line opts into the newer Node version to remove the warning
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4  # Updated to v4
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4 # Updated to v4
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24' # Updated to Node 24
 
       - name: Install Supabase Client
         run: npm install @supabase/supabase-js --force
@@ -30,27 +33,27 @@ jobs:
           const { createClient } = require('@supabase/supabase-js');
           (async () => {
             try {
-              if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
-                throw new Error('Missing Supabase Secrets in GitHub Settings');
+              if (!process.env.SUPABASE_URL || process.env.SUPABASE_KEY.includes('YOUR_')) {
+                throw new Error('Secrets are not configured correctly in GitHub.');
               }
 
               const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-              // Querying the roles table
+              // Perform a test query
               const { data, error, status } = await supabase
                 .from('roles')
                 .select('id')
                 .limit(1);
 
               if (error) {
-                console.error('Supabase Error:', error.message);
-                console.error('Status Code:', status);
+                console.error('Supabase API Error:', error.message);
+                console.error('HTTP Status:', status);
                 process.exit(1);
               }
 
-              console.log('Successfully pinged Supabase. Status:', status);
+              console.log('Ping successful. Database status: Active');
             } catch (err) {
-              console.error('Action Failed:', err.message);
+              console.error('Workflow Error:', err.message);
               process.exit(1);
             }
           })();
