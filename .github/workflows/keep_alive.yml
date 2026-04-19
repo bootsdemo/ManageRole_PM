@@ -1,0 +1,50 @@
+name: Ping Supabase to Prevent Pausing
+
+on:
+  schedule:
+    - cron: '0 9 * * 1,4' # Runs 9:00 AM UTC every Monday and Thursday
+  workflow_dispatch: # Allows you to test it manually right now
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Supabase Client
+        run: npm install @supabase/supabase-js --force
+
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }} 
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} 
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          (async () => {
+            try {
+              const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+              // Querying your roles table for activity
+              const { data, error } = await supabase
+                .from('roles')
+                .select('id')
+                .eq('project_key', 'PMUMRBAC_PROTOTYPE')
+                .limit(1);
+
+              if (error) throw error;
+
+              console.log('Successfully pinged PMUM roles. Status: Active');
+            } catch (err) {
+              console.error('Ping failed:', err.message);
+              process.exit(1);
+            }
+          })();
+          "
