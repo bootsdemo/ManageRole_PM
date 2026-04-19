@@ -2,8 +2,8 @@ name: Ping Supabase to Prevent Pausing
 
 on:
   schedule:
-    - cron: '0 9 * * 1,4' # Runs 9:00 AM UTC every Monday and Thursday
-  workflow_dispatch: # Allows you to test it manually right now
+    - cron: '0 9 * * 1,4' 
+  workflow_dispatch: 
 
 jobs:
   ping:
@@ -11,12 +11,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Updated to v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4 # Updated to v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install Supabase Client
         run: npm install @supabase/supabase-js --force
@@ -30,20 +30,27 @@ jobs:
           const { createClient } = require('@supabase/supabase-js');
           (async () => {
             try {
+              if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+                throw new Error('Missing Supabase Secrets in GitHub Settings');
+              }
+
               const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-              // Querying your roles table for activity
-              const { data, error } = await supabase
+              // Querying the roles table
+              const { data, error, status } = await supabase
                 .from('roles')
                 .select('id')
-                .eq('project_key', 'PMUMRBAC_PROTOTYPE')
                 .limit(1);
 
-              if (error) throw error;
+              if (error) {
+                console.error('Supabase Error:', error.message);
+                console.error('Status Code:', status);
+                process.exit(1);
+              }
 
-              console.log('Successfully pinged PMUM roles. Status: Active');
+              console.log('Successfully pinged Supabase. Status:', status);
             } catch (err) {
-              console.error('Ping failed:', err.message);
+              console.error('Action Failed:', err.message);
               process.exit(1);
             }
           })();
